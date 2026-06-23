@@ -1,0 +1,50 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  updatePropuestaPrecio,
+  crearPaginaDesglose,
+  crearRegistroEnCotizacionesDb,
+} from "@/lib/notion";
+import type { CotizacionData } from "@/types";
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json()) as {
+      cotizacion: CotizacionData;
+      propuestaPageId: string;
+    };
+
+    const { cotizacion, propuestaPageId } = body;
+
+    // 1. Crear la página "Desglose" dentro del proyecto en Notion
+    const desglosePaginaId = await crearPaginaDesglose(propuestaPageId, cotizacion);
+
+    // 2. Actualizar Precio y Utilidad en la propuesta
+    await updatePropuestaPrecio(
+      propuestaPageId,
+      cotizacion.precioFinal,
+      cotizacion.utilidadDinero
+    );
+
+    // 3. Crear registro en la BD de Cotizaciones
+    let cotizacionPageId: string | null = null;
+    if (process.env.NOTION_COTIZACIONES_DB_ID) {
+      cotizacionPageId = await crearRegistroEnCotizacionesDb(
+        cotizacion,
+        propuestaPageId,
+        desglosePaginaId
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      desglosePaginaId,
+      cotizacionPageId,
+    });
+  } catch (error) {
+    console.error("Error registrando cotización:", error);
+    return NextResponse.json(
+      { error: "Error al registrar la cotización en Notion" },
+      { status: 500 }
+    );
+  }
+}

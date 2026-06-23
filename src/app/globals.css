@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-xeryus-black text-white;
+    font-family: 'Inter', 'Calibri', system-ui, sans-serif;
+  }
+  * {
+    border-color: theme('colors.xeryus.border');
+  }
+  input, select, textarea {
+    color-scheme: dark;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-xeryus-red hover:bg-xeryus-redMid active:bg-xeryus-redDark
+           text-white font-semibold px-4 py-2 rounded-lg transition-colors duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-transparent hover:bg-white/5 text-xeryus-red border border-xeryus-red
+           font-semibold px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-ghost {
+    @apply text-xeryus-muted hover:text-white px-3 py-1.5 rounded-lg transition-colors duration-150 text-sm;
+  }
+  .input-field {
+    @apply w-full bg-[#1f1f1f] border border-xeryus-border rounded-lg px-3 py-2 text-sm text-white
+           placeholder-xeryus-muted
+           focus:outline-none focus:ring-1 focus:ring-xeryus-red focus:border-xeryus-red
+           transition-colors duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .input-mapped {
+    @apply w-full bg-[#0f0f0f] border border-xeryus-border rounded-lg px-3 py-2 text-sm text-white/80
+           cursor-default select-none;
+  }
+  .card {
+    @apply bg-xeryus-card rounded-xl border border-xeryus-border;
+  }
+  .section-header {
+    @apply bg-xeryus-redDark text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 rounded-t-lg flex items-center gap-2;
+  }
+  .section-header-red {
+    @apply bg-xeryus-red text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 rounded-t-lg flex items-center gap-2;
+  }
+  .tag-estado {
+    @apply inline-block px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+}
