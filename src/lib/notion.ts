@@ -207,20 +207,37 @@ function getTextProp(props: Record<string, unknown>, key: string): string {
   const prop = props[key] as Record<string, unknown> | undefined;
   if (!prop) return "";
   if (prop.type === "title" && Array.isArray(prop.title)) {
-    return (prop.title as Array<{ plain_text: string }>)
-      .map((t) => t.plain_text)
-      .join("");
+    return (prop.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
   }
   if (prop.type === "rich_text" && Array.isArray(prop.rich_text)) {
-    return (prop.rich_text as Array<{ plain_text: string }>)
-      .map((t) => t.plain_text)
-      .join("");
+    return (prop.rich_text as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
   }
   if (prop.type === "people" && Array.isArray(prop.people)) {
-    return (prop.people as Array<{ name?: string }>)
-      .map((p) => p.name ?? "")
-      .join(", ");
+    return (prop.people as Array<{ name?: string }>).map((p) => p.name ?? "").join(", ");
   }
+  if (prop.type === "formula") {
+    const f = prop.formula as Record<string, unknown> | undefined;
+    if (typeof f?.string === "string") return f.string;
+    if (typeof f?.number === "number") return String(f.number);
+  }
+  if (prop.type === "rollup") {
+    const r = prop.rollup as Record<string, unknown> | undefined;
+    if (typeof r?.string === "string") return r.string;
+    if (Array.isArray(r?.array)) {
+      return (r!.array as Array<Record<string, unknown>>)
+        .map((item) => {
+          if (Array.isArray(item.title)) return (item.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
+          if (Array.isArray(item.rich_text)) return (item.rich_text as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
+          if (item.type === "people" && Array.isArray(item.people)) return (item.people as Array<{ name?: string }>).map((p) => p.name ?? "").join(", ");
+          return "";
+        })
+        .filter(Boolean)
+        .join(", ");
+    }
+  }
+  if (prop.type === "email" && typeof prop.email === "string") return prop.email;
+  if (prop.type === "phone_number" && typeof prop.phone_number === "string") return prop.phone_number;
+  if (prop.type === "url" && typeof prop.url === "string") return prop.url;
   return "";
 }
 
