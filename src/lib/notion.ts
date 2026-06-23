@@ -202,7 +202,7 @@ export async function crearRegistroEnCotizacionesDb(
         relation: [{ id: propuestaPageId }],
       },
       // "Desglose": cambiar tipo a Texto en Notion para activar esta línea
-      // "Desglose": { rich_text: [{ text: { content: desgloseTexto.slice(0, 2000) } }] },
+      "Desglose": { rich_text: [{ text: { content: desgloseTexto.slice(0, 2000) } }] },
       ...(cotizacion.notas ? {
         "Notas": {
           rich_text: [{ text: { content: cotizacion.notas } }],
