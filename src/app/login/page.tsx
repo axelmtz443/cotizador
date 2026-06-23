@@ -55,7 +55,7 @@ export default function LoginPage() {
                 type="text"
                 value={usuario}
                 onChange={(e) => setUsuario(e.target.value)}
-                placeholder="Kamila, Axel, JC"
+                placeholder="Usuario"
                 className="input-field"
                 autoComplete="username"
                 autoFocus

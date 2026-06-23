@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const USUARIOS = ["kamila", "axel", "jc"];
-const PASSWORD = "GWP2026";
+const USUARIOS = ["kamila", "axel", "jc", "Alex"];
+const PASSWORD = "GWP2026.";
 
 export async function POST(req: NextRequest) {
   const { usuario, password } = await req.json();
