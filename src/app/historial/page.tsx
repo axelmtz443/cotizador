@@ -2,6 +2,8 @@ import { notion } from "@/lib/notion";
 import { isFullPage } from "@notionhq/client";
 import { formatMXN } from "@/lib/pricing";
 
+export const dynamic = "force-dynamic";
+
 interface CotizacionRow {
   id: string;
   nombre: string;
