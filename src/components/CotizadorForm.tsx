@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import type { Propuesta, FilaCotizacion, CatalogoData, ClaseCliente } from "@/types";
+import type { Propuesta, FilaCotizacion, CatalogoData, ClaseCliente, CotizacionSnapshot } from "@/types";
 import { calcularCotizacion, generarNumeroCotizacion } from "@/lib/pricing";
 import TablaServicios from "./TablaServicios";
 import ResumenPrecio from "./ResumenPrecio";
@@ -26,9 +26,10 @@ const ESTADO_COLORS: Record<string, string> = {
 
 interface Props {
   catalogo: CatalogoData;
+  initialData?: CotizacionSnapshot;
 }
 
-export default function CotizadorForm({ catalogo }: Props) {
+export default function CotizadorForm({ catalogo, initialData }: Props) {
   const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
   const [loadingPropuestas, setLoadingPropuestas] = useState(true);
   const [errorPropuestas, setErrorPropuestas] = useState("");
@@ -58,7 +59,27 @@ export default function CotizadorForm({ catalogo }: Props) {
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
-    setNumeroCotizacion(generarNumeroCotizacion());
+    if (!initialData) setNumeroCotizacion(generarNumeroCotizacion());
+  }, [initialData]);
+
+  useEffect(() => {
+    if (!initialData) return;
+    setPropuestaId(initialData.propuestaId);
+    setClase(initialData.clase);
+    setPlazas(initialData.plazas);
+    setPrecioPorPlaza(initialData.precioPorPlaza);
+    setFilas(initialData.filas);
+    setOvServicios(initialData.ovServicios);
+    setOvPM(initialData.ovPM);
+    setOvPresentacion(initialData.ovPresentacion);
+    setOvParticipacion(initialData.ovParticipacion);
+    setOvPrecio(initialData.ovPrecio);
+    setOvUtilidadMonto(initialData.ovUtilidadMonto);
+    setOvUtilidadPct(initialData.ovUtilidadPct);
+    setOvMarkupPct(initialData.ovMarkupPct);
+    setNotas(initialData.notas);
+    setNumeroCotizacion(initialData.numeroCotizacion);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -193,11 +214,29 @@ export default function CotizadorForm({ catalogo }: Props) {
       notas,
     };
 
+    const snapshot: CotizacionSnapshot = {
+      propuestaId,
+      clase,
+      plazas,
+      precioPorPlaza,
+      filas,
+      ovServicios,
+      ovPM,
+      ovPresentacion,
+      ovParticipacion,
+      ovPrecio,
+      ovUtilidadMonto,
+      ovUtilidadPct,
+      ovMarkupPct,
+      notas,
+      numeroCotizacion,
+    };
+
     try {
       const res = await fetch("/api/cotizaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cotizacion, propuestaPageId: propuestaId }),
+        body: JSON.stringify({ cotizacion, propuestaPageId: propuestaId, snapshot }),
       });
       const data = await res.json();
       if (data.success) {

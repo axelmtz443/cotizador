@@ -1,8 +1,9 @@
 import CotizadorForm from "@/components/CotizadorForm";
 import { catalogoInicial } from "@/lib/catalog-data";
+import { getCotizacionDatos } from "@/lib/notion";
 import { promises as fs } from "fs";
 import path from "path";
-import type { CatalogoData } from "@/types";
+import type { CatalogoData, CotizacionSnapshot } from "@/types";
 
 async function getCatalogo(): Promise<CatalogoData> {
   try {
@@ -13,15 +14,26 @@ async function getCatalogo(): Promise<CatalogoData> {
   }
 }
 
-export default async function CotizadorPage() {
+export default async function CotizadorPage({
+  searchParams,
+}: {
+  searchParams: { cot?: string };
+}) {
   const catalogo = await getCatalogo();
+
+  let initialData: CotizacionSnapshot | undefined;
+  if (searchParams.cot) {
+    const snapshot = await getCotizacionDatos(searchParams.cot);
+    if (snapshot) initialData = snapshot;
+  }
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Cotizador de proyectos</h1>
         <p className="text-sm text-xeryus-muted mt-1">Investigación de Mercado · XERYUS</p>
       </div>
-      <CotizadorForm catalogo={catalogo} />
+      <CotizadorForm catalogo={catalogo} initialData={initialData} />
     </div>
   );
 }

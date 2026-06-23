@@ -1,5 +1,5 @@
 import { Client, isFullPage } from "@notionhq/client";
-import type { Propuesta, CotizacionData } from "@/types";
+import type { Propuesta, CotizacionData, CotizacionSnapshot } from "@/types";
 
 export const notion = new Client({
   auth: process.env.NOTION_TOKEN,
@@ -168,9 +168,26 @@ export async function getCotizacionesDb(): Promise<string | null> {
   return process.env.NOTION_COTIZACIONES_DB_ID || null;
 }
 
+export async function getCotizacionDatos(pageId: string): Promise<CotizacionSnapshot | null> {
+  try {
+    const page = await notion.pages.retrieve({ page_id: pageId });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const props = (page as any).properties as Record<string, any> | undefined;
+    if (!props) return null;
+    const datosProp = props["Datos"];
+    if (!datosProp || !Array.isArray(datosProp.rich_text)) return null;
+    const json = (datosProp.rich_text as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
+    if (!json) return null;
+    return JSON.parse(json) as CotizacionSnapshot;
+  } catch {
+    return null;
+  }
+}
+
 export async function crearRegistroEnCotizacionesDb(
   cotizacion: CotizacionData,
-  propuestaPageId: string
+  propuestaPageId: string,
+  snapshot?: CotizacionSnapshot
 ): Promise<string> {
   const dbId = process.env.NOTION_COTIZACIONES_DB_ID;
   if (!dbId) throw new Error("NOTION_COTIZACIONES_DB_ID no configurado");
@@ -206,6 +223,14 @@ export async function crearRegistroEnCotizacionesDb(
       ...(cotizacion.notas ? {
         "Notas": {
           rich_text: [{ text: { content: cotizacion.notas } }],
+        },
+      } : {}),
+      ...(snapshot ? {
+        "Datos": {
+          rich_text: chunkText(JSON.stringify(snapshot), 2000).map((chunk) => ({
+            type: "text" as const,
+            text: { content: chunk },
+          })),
         },
       } : {}),
     },
@@ -252,6 +277,12 @@ function getTextProp(props: Record<string, unknown>, key: string): string {
   if (prop.type === "phone_number" && typeof prop.phone_number === "string") return prop.phone_number;
   if (prop.type === "url" && typeof prop.url === "string") return prop.url;
   return "";
+}
+
+function chunkText(str: string, size: number): string[] {
+  const chunks: string[] = [];
+  for (let i = 0; i < str.length; i += size) chunks.push(str.slice(i, i + size));
+  return chunks;
 }
 
 function getSelectProp(props: Record<string, unknown>, key: string): string {

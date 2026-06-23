@@ -96,3 +96,21 @@ export const CLASES_CONFIG: ClasesConfig = {
 
 export const PM_BASE = 4800;
 export const PRESENTACION_COSTO = 800;
+
+export interface CotizacionSnapshot {
+  propuestaId: string;
+  clase: ClaseCliente;
+  plazas: number;
+  precioPorPlaza: number;
+  filas: FilaCotizacion[];
+  ovServicios: string;
+  ovPM: string;
+  ovPresentacion: string;
+  ovParticipacion: string;
+  ovPrecio: string;
+  ovUtilidadMonto: string;
+  ovUtilidadPct: string;
+  ovMarkupPct: string;
+  notas: string;
+  numeroCotizacion: string;
+}

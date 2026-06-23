@@ -185,10 +185,16 @@ export default async function HistorialPage() {
                     <td className="px-4 py-3 text-center text-xeryus-muted text-xs">
                       {c.fecha ? new Date(c.fecha).toLocaleDateString("es-MX") : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 flex flex-col gap-1.5 items-start">
+                      <a
+                        href={`/?cot=${c.id}`}
+                        className="text-xeryus-red hover:text-white text-xs font-semibold hover:underline transition-colors"
+                      >
+                        Abrir →
+                      </a>
                       <a href={c.notionUrl} target="_blank" rel="noopener noreferrer"
                         className="text-xeryus-muted hover:text-xeryus-red text-xs font-medium hover:underline transition-colors">
-                        Notion →
+                        Notion ↗
                       </a>
                     </td>
                   </tr>

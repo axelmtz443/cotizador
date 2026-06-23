@@ -4,16 +4,17 @@ import {
   agregarDesgloseAPropuesta,
   crearRegistroEnCotizacionesDb,
 } from "@/lib/notion";
-import type { CotizacionData } from "@/types";
+import type { CotizacionData, CotizacionSnapshot } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as {
       cotizacion: CotizacionData;
       propuestaPageId: string;
+      snapshot?: CotizacionSnapshot;
     };
 
-    const { cotizacion, propuestaPageId } = body;
+    const { cotizacion, propuestaPageId, snapshot } = body;
 
     // 1. Agregar desglose como contenido de la página de la propuesta
     await agregarDesgloseAPropuesta(propuestaPageId, cotizacion);
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest) {
     if (process.env.NOTION_COTIZACIONES_DB_ID) {
       cotizacionPageId = await crearRegistroEnCotizacionesDb(
         cotizacion,
-        propuestaPageId
+        propuestaPageId,
+        snapshot
       );
     }
 
