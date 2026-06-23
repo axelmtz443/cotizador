@@ -49,6 +49,7 @@ export interface CotizacionData {
   precioFinal: number;
   fecha: string;
   numeroCotizacion: string;
+  notas?: string;
 }
 
 export interface Propuesta {

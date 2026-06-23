@@ -249,6 +249,11 @@ export async function crearRegistroEnCotizacionesDb(
       "Desglose": {
         relation: [{ id: desglosePaginaId }],
       },
+      ...(cotizacion.notas ? {
+        "Notas": {
+          rich_text: [{ text: { content: cotizacion.notas } }],
+        },
+      } : {}),
     },
   });
 

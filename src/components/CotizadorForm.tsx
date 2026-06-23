@@ -40,10 +40,18 @@ export default function CotizadorForm({ catalogo }: Props) {
   const [filas, setFilas] = useState<FilaCotizacion[]>([nuevaFila()]);
   const [numeroCotizacion, setNumeroCotizacion] = useState("");
 
-  const [utilidadManualPct, setUtilidadManualPct] = useState("");
-  const [markupManual, setMarkupManual] = useState("");
-  const [totalManual, setTotalManual] = useState("");
+  // Overrides por línea de costo
+  const [ovServicios, setOvServicios] = useState("");
+  const [ovPM, setOvPM] = useState("");
+  const [ovPresentacion, setOvPresentacion] = useState("");
+  const [ovParticipacion, setOvParticipacion] = useState("");
+  // Overrides de precio final (solo uno activo a la vez)
+  const [ovPrecio, setOvPrecio] = useState("");
+  const [ovUtilidadMonto, setOvUtilidadMonto] = useState("");
+  const [ovUtilidadPct, setOvUtilidadPct] = useState("");
+  const [ovMarkupPct, setOvMarkupPct] = useState("");
 
+  const [notas, setNotas] = useState("");
   const [registrando, setRegistrando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -74,15 +82,24 @@ export default function CotizadorForm({ catalogo }: Props) {
 
   const tieneEncuestas = filas.some((f) => f.servicio?.categoria === "Encuestas");
 
-  const calc = calcularCotizacion(
-    filas,
-    clase,
-    plazas,
-    precioPorPlaza,
-    utilidadManualPct ? Number(utilidadManualPct) / 100 : undefined,
-    markupManual ? Number(markupManual) / 100 : undefined,
-    totalManual ? Number(totalManual) : undefined
-  );
+  const calc = calcularCotizacion(filas, clase, plazas, precioPorPlaza);
+
+  // Valores efectivos con overrides aplicados
+  const effServicios = ovServicios !== "" ? Number(ovServicios) : calc.subtotalServicios;
+  const effPM = ovPM !== "" ? Number(ovPM) : calc.costoProjectManager;
+  const effPresentacion = ovPresentacion !== "" ? Number(ovPresentacion) : calc.costoPresentacion;
+  const effParticipacion = ovParticipacion !== "" ? Number(ovParticipacion) : calc.costoParticipacion;
+  const effTotalCostos = effServicios + calc.costoPlazas + effPM + effPresentacion + effParticipacion;
+  const utilPct = clase ? (clase === "A" ? 0.5 : clase === "B" ? 0.4 : 0.3) : 0;
+  const effPrecioFinal =
+    ovPrecio !== "" ? Number(ovPrecio) :
+    ovUtilidadMonto !== "" ? effTotalCostos + Number(ovUtilidadMonto) :
+    ovUtilidadPct !== "" ? effTotalCostos / (1 - Number(ovUtilidadPct) / 100) :
+    ovMarkupPct !== "" ? effTotalCostos * (1 + Number(ovMarkupPct) / 100) :
+    clase ? effTotalCostos / (1 - utilPct) : 0;
+  const effUtilidadDinero = effPrecioFinal - effTotalCostos;
+  const effMarkupPct = effTotalCostos > 0 ? (effUtilidadDinero / effTotalCostos) * 100 : 0;
+  const effUtilidadPctReal = effPrecioFinal > 0 ? (effUtilidadDinero / effPrecioFinal) * 100 : 0;
 
   function handleUpdateFila(id: string, changes: Partial<FilaCotizacion>) {
     setFilas((prev) => prev.map((f) => (f.id === id ? { ...f, ...changes } : f)));
@@ -99,12 +116,46 @@ export default function CotizadorForm({ catalogo }: Props) {
     setFilas((prev) => [...prev, nuevaFila()]);
   }
 
+  function copiarDesglose() {
+    const lineas = [
+      `Cotización: ${numeroCotizacion}`,
+      `Propuesta: ${propuestaSeleccionada?.titulo ?? ""}`,
+      `Proyecto: ${propuestaSeleccionada?.proyecto ?? ""}`,
+      `Cliente: ${propuestaSeleccionada?.contacto ?? ""}`,
+      `Empresa: ${propuestaSeleccionada?.empresa ?? ""}`,
+      `Clase: ${clase}`,
+      `Fecha: ${new Date().toLocaleDateString("es-MX")}`,
+      ``,
+      `SERVICIOS`,
+      ...filas.filter(f => f.servicio).map(f => `  ${f.servicio!.nombre} × ${f.cantidad} = $${f.total.toLocaleString("es-MX")}`),
+      ``,
+      `COSTOS`,
+      `  Servicios:     $${effServicios.toLocaleString("es-MX")}`,
+      calc.costoPlazas > 0 ? `  Plazas (${plazas}): $${calc.costoPlazas.toLocaleString("es-MX")}` : "",
+      `  Project Mgr:   $${effPM.toLocaleString("es-MX")}`,
+      `  Presentación:  $${effPresentacion.toLocaleString("es-MX")}`,
+      `  Dirección:     $${effParticipacion.toLocaleString("es-MX")}`,
+      `  ─────────────────────`,
+      `  Total costos:  $${effTotalCostos.toLocaleString("es-MX")}`,
+      ``,
+      `PRECIO`,
+      `  Utilidad (${effUtilidadPctReal.toFixed(1)}%): $${effUtilidadDinero.toLocaleString("es-MX")}`,
+      `  Markup: ${effMarkupPct.toFixed(1)}%`,
+      `  PRECIO FINAL: $${effPrecioFinal.toLocaleString("es-MX")}`,
+      notas ? `\nNotas: ${notas}` : "",
+    ].filter(l => l !== "").join("\n");
+
+    navigator.clipboard.writeText(lineas).then(() => {
+      setResultado({ ok: true, msg: "✓ Desglose copiado al portapapeles." });
+    });
+  }
+
   async function handleRegistrar() {
     if (!propuestaId) {
       setResultado({ ok: false, msg: "Selecciona una propuesta antes de registrar." });
       return;
     }
-    if (calc.precioFinal === 0) {
+    if (effPrecioFinal === 0) {
       setResultado({ ok: false, msg: "Agrega servicios y selecciona una clase para calcular el precio." });
       return;
     }
@@ -114,6 +165,14 @@ export default function CotizadorForm({ catalogo }: Props) {
 
     const cotizacion = {
       ...calc,
+      subtotalServicios: effServicios,
+      costoProjectManager: effPM,
+      costoPresentacion: effPresentacion,
+      costoParticipacion: effParticipacion,
+      totalCostos: effTotalCostos,
+      precioFinal: effPrecioFinal,
+      utilidadDinero: effUtilidadDinero,
+      utilidadPct: utilPct,
       propuestaId,
       propuestaNombre: propuestaSeleccionada?.titulo ?? "",
       cliente: propuestaSeleccionada?.contacto ?? "",
@@ -121,6 +180,7 @@ export default function CotizadorForm({ catalogo }: Props) {
       contacto: propuestaSeleccionada?.contacto ?? "",
       fecha: new Date().toISOString().split("T")[0],
       numeroCotizacion,
+      notas,
     };
 
     try {
@@ -335,14 +395,28 @@ export default function CotizadorForm({ catalogo }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <ResumenPrecio
-            {...calc}
+            subtotalServicios={effServicios}
+            costoPlazas={calc.costoPlazas}
+            plazas={plazas}
+            costoProjectManager={effPM}
+            costoPresentacion={effPresentacion}
+            costoParticipacion={effParticipacion}
+            totalCostos={effTotalCostos}
+            utilidadPct={utilPct}
+            utilidadDinero={effUtilidadDinero}
+            utilidadPctReal={effUtilidadPctReal}
+            markupPct={effMarkupPct}
+            precioFinal={effPrecioFinal}
             clase={clase}
-            utilidadManualPct={utilidadManualPct}
-            markupManual={markupManual}
-            totalManual={totalManual}
-            onUtilidadManualPct={setUtilidadManualPct}
-            onMarkupManual={setMarkupManual}
-            onTotalManual={setTotalManual}
+            ovServicios={ovServicios} onOvServicios={setOvServicios}
+            ovPM={ovPM} onOvPM={setOvPM}
+            ovPresentacion={ovPresentacion} onOvPresentacion={setOvPresentacion}
+            ovParticipacion={ovParticipacion} onOvParticipacion={setOvParticipacion}
+            ovPrecio={ovPrecio} onOvPrecio={(v) => { setOvPrecio(v); setOvUtilidadMonto(""); setOvUtilidadPct(""); setOvMarkupPct(""); }}
+            ovUtilidadMonto={ovUtilidadMonto} onOvUtilidadMonto={(v) => { setOvUtilidadMonto(v); setOvPrecio(""); setOvUtilidadPct(""); setOvMarkupPct(""); }}
+            ovUtilidadPct={ovUtilidadPct} onOvUtilidadPct={(v) => { setOvUtilidadPct(v); setOvPrecio(""); setOvUtilidadMonto(""); setOvMarkupPct(""); }}
+            ovMarkupPct={ovMarkupPct} onOvMarkupPct={(v) => { setOvMarkupPct(v); setOvPrecio(""); setOvUtilidadMonto(""); setOvUtilidadPct(""); }}
+            onResetPrecio={() => { setOvPrecio(""); setOvUtilidadMonto(""); setOvUtilidadPct(""); setOvMarkupPct(""); }}
           />
         </div>
 
@@ -351,18 +425,28 @@ export default function CotizadorForm({ catalogo }: Props) {
             <p className="text-xs font-semibold text-xeryus-muted uppercase tracking-widest">
               Al registrar
             </p>
-            <ul className="text-sm text-white/70 space-y-2">
-              {[
-                'Crear página "Desglose" en el proyecto de Notion',
-                "Actualizar Precio y Utilidad en la propuesta",
-                "Guardar en BD de Cotizaciones",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="text-xeryus-red mt-0.5 font-bold">→</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
+
+            <div>
+              <label className="text-xs font-semibold text-xeryus-muted uppercase tracking-widest block mb-2">
+                Proyecto
+              </label>
+              <div className="input-mapped text-sm">
+                {propuestaSeleccionada?.proyecto || <span className="text-xeryus-muted/50">— desde Notion —</span>}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-xeryus-muted uppercase tracking-widest block mb-2">
+                Notas
+              </label>
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Observaciones internas..."
+                rows={3}
+                className="input-field text-sm resize-none"
+              />
+            </div>
 
             {resultado && (
               <div
@@ -383,6 +467,14 @@ export default function CotizadorForm({ catalogo }: Props) {
               className="btn-primary w-full py-3 text-base"
             >
               {registrando ? "Registrando..." : resultado?.ok ? "✓ Registrada" : "Registrar cotización"}
+            </button>
+
+            <button
+              type="button"
+              onClick={copiarDesglose}
+              className="w-full py-2 text-sm text-xeryus-muted border border-xeryus-border rounded-xl hover:border-xeryus-red/50 hover:text-white transition-colors"
+            >
+              Copiar desglose
             </button>
           </div>
         </div>
