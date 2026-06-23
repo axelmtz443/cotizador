@@ -9,7 +9,7 @@ const ESTADOS_ACTIVOS = [
   "En Proceso",
   "Propuesta en Revisión",
   "Realizar Propuesta",
-  "En contacto",
+  "En Contacto",
   "Cita Agendada",
   "Nuevo Lead",
 ];
