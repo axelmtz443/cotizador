@@ -29,17 +29,31 @@ export async function getPropuestas(): Promise<Propuesta[]> {
   const contactMap = new Map<string, string>();
   if (contactIds.size > 0) {
     const fetched = await Promise.all(
-      [...contactIds].map((id) => notion.pages.retrieve({ page_id: id }).catch(() => null))
+      [...contactIds].map(async (id) => {
+        try {
+          const page = await notion.pages.retrieve({ page_id: id });
+          return { id, page };
+        } catch (err) {
+          console.error(`[Notion] No se pudo obtener contacto ${id}:`, err);
+          return { id, page: null };
+        }
+      })
     );
-    for (const cp of fetched) {
-      if (!cp || !isFullPage(cp)) continue;
-      // El título de la página de contacto es el nombre
-      const titleProp = Object.values(cp.properties).find(
-        (p) => (p as Record<string, unknown>).type === "title"
-      ) as Record<string, unknown> | undefined;
-      if (titleProp && Array.isArray(titleProp.title)) {
-        const name = (titleProp.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
-        contactMap.set(cp.id, name);
+    for (const { id, page } of fetched) {
+      if (!page) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const props = (page as any).properties as Record<string, any> | undefined;
+      if (!props) continue;
+      // Buscar la propiedad de tipo title (el nombre del contacto)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const titleProp = Object.values(props).find((p: any) => p?.type === "title") as any;
+      if (titleProp?.title) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const name = (titleProp.title as any[]).map((t: any) => t?.plain_text ?? "").join("").trim();
+        console.log(`[Notion] Contacto ${id} → "${name}"`);
+        if (name) contactMap.set(id, name);
+      } else {
+        console.warn(`[Notion] Contacto ${id}: no se encontró propiedad title. Props:`, Object.keys(props));
       }
     }
   }
