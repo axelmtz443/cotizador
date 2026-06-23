@@ -33,7 +33,11 @@ export default async function CotizadorPage({
         <h1 className="text-2xl font-bold text-white">Cotizador de proyectos</h1>
         <p className="text-sm text-xeryus-muted mt-1">Investigación de Mercado · XERYUS</p>
       </div>
-      <CotizadorForm catalogo={catalogo} initialData={initialData} />
+      <CotizadorForm
+        catalogo={catalogo}
+        initialData={initialData}
+        cotizacionId={searchParams.cot}
+      />
     </div>
   );
 }

@@ -27,9 +27,10 @@ const ESTADO_COLORS: Record<string, string> = {
 interface Props {
   catalogo: CatalogoData;
   initialData?: CotizacionSnapshot;
+  cotizacionId?: string;
 }
 
-export default function CotizadorForm({ catalogo, initialData }: Props) {
+export default function CotizadorForm({ catalogo, initialData, cotizacionId }: Props) {
   const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
   const [loadingPropuestas, setLoadingPropuestas] = useState(true);
   const [errorPropuestas, setErrorPropuestas] = useState("");
@@ -214,6 +215,9 @@ export default function CotizadorForm({ catalogo, initialData }: Props) {
       notas,
     };
 
+    // Si venimos de historial, usamos el ID guardado en el snapshot (puede sobrescribir el prop)
+    const existingId = initialData?.cotizacionPageId ?? cotizacionId;
+
     const snapshot: CotizacionSnapshot = {
       propuestaId,
       clase,
@@ -230,13 +234,19 @@ export default function CotizadorForm({ catalogo, initialData }: Props) {
       ovMarkupPct,
       notas,
       numeroCotizacion,
+      ...(existingId ? { cotizacionPageId: existingId } : {}),
     };
 
     try {
       const res = await fetch("/api/cotizaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cotizacion, propuestaPageId: propuestaId, snapshot }),
+        body: JSON.stringify({
+          cotizacion,
+          propuestaPageId: propuestaId,
+          snapshot,
+          ...(existingId ? { cotizacionPageId: existingId } : {}),
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -540,10 +550,14 @@ export default function CotizadorForm({ catalogo, initialData }: Props) {
             <button
               type="button"
               onClick={handleRegistrar}
-              disabled={registrando || resultado?.ok === true}
+              disabled={registrando || (resultado?.ok === true && !cotizacionId && !initialData?.cotizacionPageId)}
               className="btn-primary w-full py-3 text-base"
             >
-              {registrando ? "Registrando..." : resultado?.ok ? "✓ Registrada" : "Registrar cotización"}
+              {registrando
+                ? "Guardando..."
+                : resultado?.ok
+                  ? cotizacionId || initialData?.cotizacionPageId ? "✓ Actualizada" : "✓ Registrada"
+                  : cotizacionId || initialData?.cotizacionPageId ? "Actualizar cotización" : "Registrar cotización"}
             </button>
 
             <div className="border-t border-xeryus-border pt-3">

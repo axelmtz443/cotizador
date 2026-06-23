@@ -113,4 +113,5 @@ export interface CotizacionSnapshot {
   ovMarkupPct: string;
   notas: string;
   numeroCotizacion: string;
+  cotizacionPageId?: string;
 }
