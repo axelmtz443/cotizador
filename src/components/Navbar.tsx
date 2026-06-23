@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const links = [
   { href: "/", label: "Cotizador" },
@@ -10,6 +10,12 @@ const links = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth", { method: "DELETE" });
+    router.push("/login");
+  }
 
   return (
     <header className="bg-black border-b border-xeryus-border sticky top-0 z-50">
@@ -31,7 +37,7 @@ export default function Navbar() {
         </span>
 
         {/* Nav links */}
-        <nav className="flex gap-1 ml-auto">
+        <nav className="flex gap-1 ml-auto items-center">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -45,6 +51,13 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <div className="h-4 w-px bg-xeryus-border mx-1" />
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1.5 rounded-md text-xs text-xeryus-muted hover:text-white hover:bg-white/5 transition-colors"
+          >
+            Salir
+          </button>
         </nav>
       </div>
     </header>
