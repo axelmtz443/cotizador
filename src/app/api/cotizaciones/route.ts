@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   updatePropuestaPrecio,
-  crearPaginaDesglose,
+  agregarDesgloseAPropuesta,
   crearRegistroEnCotizacionesDb,
 } from "@/lib/notion";
 import type { CotizacionData } from "@/types";
@@ -15,10 +15,10 @@ export async function POST(req: NextRequest) {
 
     const { cotizacion, propuestaPageId } = body;
 
-    // 1. Crear la página "Desglose" dentro del proyecto en Notion
-    const desglosePaginaId = await crearPaginaDesglose(propuestaPageId, cotizacion);
+    // 1. Agregar desglose como contenido de la página de la propuesta
+    await agregarDesgloseAPropuesta(propuestaPageId, cotizacion);
 
-    // 2. Actualizar Precio y Utilidad en la propuesta
+    // 2. Actualizar Precio y Utilidad $ en la propuesta
     await updatePropuestaPrecio(
       propuestaPageId,
       cotizacion.precioFinal,
@@ -30,14 +30,12 @@ export async function POST(req: NextRequest) {
     if (process.env.NOTION_COTIZACIONES_DB_ID) {
       cotizacionPageId = await crearRegistroEnCotizacionesDb(
         cotizacion,
-        propuestaPageId,
-        desglosePaginaId
+        propuestaPageId
       );
     }
 
     return NextResponse.json({
       success: true,
-      desglosePaginaId,
       cotizacionPageId,
     });
   } catch (error) {

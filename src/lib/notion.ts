@@ -103,112 +103,65 @@ export async function updatePropuestaPrecio(
   });
 }
 
-export async function crearPaginaDesglose(
+export async function agregarDesgloseAPropuesta(
   propuestaPageId: string,
   cotizacion: CotizacionData
-): Promise<string> {
-  const serviciosBlocks = cotizacion.filas
-    .filter((f) => f.servicio !== null)
-    .map((f) => ({
-      object: "block" as const,
-      type: "bulleted_list_item" as const,
-      bulleted_list_item: {
-        rich_text: [
-          {
-            type: "text" as const,
-            text: {
-              content: `${f.servicio!.nombre} × ${f.cantidad} = $${f.total.toLocaleString("es-MX")}`,
-            },
-          },
-        ],
-      },
-    }));
+): Promise<void> {
+  const filas = cotizacion.filas.filter((f) => f.servicio !== null);
+  const markupPct = cotizacion.totalCostos > 0
+    ? ((cotizacion.utilidadDinero / cotizacion.totalCostos) * 100).toFixed(1)
+    : "0.0";
 
-  const page = await notion.pages.create({
-    parent: { page_id: propuestaPageId },
-    properties: {
-      title: {
-        title: [
-          {
-            text: {
-              content: `Desglose · ${cotizacion.numeroCotizacion}`,
-            },
-          },
-        ],
-      },
-    },
+  const txt = (s: string) => [{ type: "text" as const, text: { content: s } }];
+
+  const costoLines = [
+    `Servicios:     $${cotizacion.subtotalServicios.toLocaleString("es-MX")}`,
+    cotizacion.costoPlazas > 0 ? `Plazas (${cotizacion.plazas}):   $${cotizacion.costoPlazas.toLocaleString("es-MX")}` : null,
+    `Project Mgr:   $${cotizacion.costoProjectManager.toLocaleString("es-MX")}`,
+    `Presentación:  $${cotizacion.costoPresentacion.toLocaleString("es-MX")}`,
+    `Dirección:     $${cotizacion.costoParticipacion.toLocaleString("es-MX")}`,
+    `─────────────────────`,
+    `Total costos:  $${cotizacion.totalCostos.toLocaleString("es-MX")}`,
+  ].filter(Boolean).join("\n");
+
+  const precioLines = [
+    `Utilidad (${(cotizacion.utilidadPct * 100).toFixed(1)}%): $${cotizacion.utilidadDinero.toLocaleString("es-MX")}`,
+    `Markup: ${markupPct}%`,
+    `PRECIO FINAL: $${cotizacion.precioFinal.toLocaleString("es-MX")}`,
+  ].join("\n");
+
+  await notion.blocks.children.append({
+    block_id: propuestaPageId,
     children: [
+      { object: "block", type: "divider", divider: {} },
       {
-        object: "block",
-        type: "heading_2",
-        heading_2: {
-          rich_text: [{ type: "text", text: { content: "Información de la cotización" } }],
-        },
+        object: "block", type: "heading_2",
+        heading_2: { rich_text: txt(`Cotización ${cotizacion.numeroCotizacion} · ${cotizacion.fecha}`) },
       },
       {
-        object: "block",
-        type: "paragraph",
-        paragraph: {
-          rich_text: [
-            {
-              type: "text",
-              text: {
-                content: `Cliente: ${cotizacion.cliente} | Empresa: ${cotizacion.empresa} | Clase: ${cotizacion.clase} | Fecha: ${cotizacion.fecha}`,
-              },
-            },
-          ],
-        },
+        object: "block", type: "paragraph",
+        paragraph: { rich_text: txt(`Cliente: ${cotizacion.cliente} | Empresa: ${cotizacion.empresa} | Clase: ${cotizacion.clase}`) },
       },
       {
-        object: "block",
-        type: "heading_2",
-        heading_2: {
-          rich_text: [{ type: "text", text: { content: "Servicios cotizados" } }],
-        },
+        object: "block", type: "heading_3",
+        heading_3: { rich_text: txt("Servicios") },
       },
-      ...serviciosBlocks,
+      ...filas.map((f) => ({
+        object: "block" as const, type: "bulleted_list_item" as const,
+        bulleted_list_item: { rich_text: txt(`${f.servicio!.nombre} × ${f.cantidad} = $${f.total.toLocaleString("es-MX")}`) },
+      })),
       {
-        object: "block",
-        type: "divider",
-        divider: {},
+        object: "block", type: "heading_3",
+        heading_3: { rich_text: txt("Costos") },
       },
-      {
-        object: "block",
-        type: "heading_2",
-        heading_2: {
-          rich_text: [{ type: "text", text: { content: "Resumen de precios" } }],
-        },
-      },
-      {
-        object: "block",
-        type: "paragraph",
-        paragraph: {
-          rich_text: [
-            {
-              type: "text",
-              text: {
-                content: [
-                  `Subtotal servicios: $${cotizacion.subtotalServicios.toLocaleString("es-MX")}`,
-                  cotizacion.costoPlazas > 0 ? `Plazas (${cotizacion.plazas}): $${cotizacion.costoPlazas.toLocaleString("es-MX")}` : null,
-                  `Project Manager: $${cotizacion.costoProjectManager.toLocaleString("es-MX")}`,
-                  `Presentación: $${cotizacion.costoPresentacion.toLocaleString("es-MX")}`,
-                  `Dirección / Participación: $${cotizacion.costoParticipacion.toLocaleString("es-MX")}`,
-                  `───────────────────`,
-                  `Total costos: $${cotizacion.totalCostos.toLocaleString("es-MX")}`,
-                  `Utilidad (${(cotizacion.utilidadPct * 100).toFixed(0)}%): $${cotizacion.utilidadDinero.toLocaleString("es-MX")}`,
-                  `PRECIO FINAL: $${cotizacion.precioFinal.toLocaleString("es-MX")}`,
-                ]
-                  .filter(Boolean)
-                  .join("\n"),
-              },
-            },
-          ],
-        },
-      },
+      { object: "block", type: "paragraph", paragraph: { rich_text: txt(costoLines) } },
+      { object: "block", type: "paragraph", paragraph: { rich_text: txt(precioLines) } },
+      ...(cotizacion.notas ? [{
+        object: "block" as const, type: "paragraph" as const,
+        paragraph: { rich_text: txt(`Notas: ${cotizacion.notas}`) },
+      }] : []),
     ],
   });
-
-  return page.id;
 }
 
 export async function getCotizacionesDb(): Promise<string | null> {
@@ -217,14 +170,16 @@ export async function getCotizacionesDb(): Promise<string | null> {
 
 export async function crearRegistroEnCotizacionesDb(
   cotizacion: CotizacionData,
-  propuestaPageId: string,
-  desglosePaginaId: string
+  propuestaPageId: string
 ): Promise<string> {
   const dbId = process.env.NOTION_COTIZACIONES_DB_ID;
   if (!dbId) throw new Error("NOTION_COTIZACIONES_DB_ID no configurado");
 
-  // Solo se escriben los campos editables directamente.
-  // Cliente, Empresa y Clase son rollup/fórmula calculados desde la relación Propuesta.
+  const desgloseTexto = cotizacion.filas
+    .filter((f) => f.servicio !== null)
+    .map((f) => `${f.servicio!.nombre} × ${f.cantidad} = $${f.total.toLocaleString("es-MX")}`)
+    .join("\n");
+
   const page = await notion.pages.create({
     parent: { database_id: dbId },
     properties: {
@@ -247,7 +202,7 @@ export async function crearRegistroEnCotizacionesDb(
         relation: [{ id: propuestaPageId }],
       },
       "Desglose": {
-        relation: [{ id: desglosePaginaId }],
+        rich_text: [{ text: { content: desgloseTexto.slice(0, 2000) } }],
       },
       ...(cotizacion.notas ? {
         "Notas": {
