@@ -469,13 +469,16 @@ export default function CotizadorForm({ catalogo }: Props) {
               {registrando ? "Registrando..." : resultado?.ok ? "✓ Registrada" : "Registrar cotización"}
             </button>
 
-            <button
-              type="button"
-              onClick={copiarDesglose}
-              className="w-full py-2 text-sm text-xeryus-muted border border-xeryus-border rounded-xl hover:border-xeryus-red/50 hover:text-white transition-colors"
-            >
-              Copiar desglose
-            </button>
+            <div className="border-t border-xeryus-border pt-3">
+              <p className="text-xs text-xeryus-muted mb-2">Si Notion falla:</p>
+              <button
+                type="button"
+                onClick={copiarDesglose}
+                className="w-full py-2.5 text-sm font-semibold text-white border-2 border-xeryus-border rounded-xl hover:border-xeryus-red hover:bg-xeryus-red/10 transition-all"
+              >
+                📋 Copiar desglose completo
+              </button>
+            </div>
           </div>
         </div>
       </div>

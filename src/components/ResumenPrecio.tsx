@@ -31,7 +31,7 @@ interface Props {
 export default function ResumenPrecio({
   subtotalServicios, costoPlazas, plazas,
   costoProjectManager, costoPresentacion, costoParticipacion,
-  totalCostos, utilidadPct, utilidadDinero, utilidadPctReal, markupPct, precioFinal, clase,
+  totalCostos, utilidadDinero, utilidadPctReal, markupPct, precioFinal, clase,
   ovServicios, onOvServicios,
   ovPM, onOvPM,
   ovPresentacion, onOvPresentacion,
@@ -51,77 +51,66 @@ export default function ResumenPrecio({
         Resumen de precios
       </div>
       <div className="p-5 space-y-1">
-        <EditableRow label="Servicios directos" calculated={subtotalServicios} override={ovServicios} onOverride={onOvServicios} onReset={() => onOvServicios("")} />
-        {costoPlazas > 0 && <Row label={`Plazas (${plazas})`} value={costoPlazas} />}
-        <EditableRow label="Project Manager" calculated={costoProjectManager} override={ovPM} onOverride={onOvPM} onReset={() => onOvPM("")} />
-        <EditableRow label="Presentación" calculated={costoPresentacion} override={ovPresentacion} onOverride={onOvPresentacion} onReset={() => onOvPresentacion("")} />
+        {/* ── Costos ── */}
+        <ERow label="Servicios directos" calculated={subtotalServicios} override={ovServicios} onOverride={onOvServicios} onReset={() => onOvServicios("")} />
+        {costoPlazas > 0 && <StaticRow label={`Plazas (${plazas})`} value={costoPlazas} />}
+        <ERow label="Project Manager"    calculated={costoProjectManager} override={ovPM}            onOverride={onOvPM}            onReset={() => onOvPM("")} />
+        <ERow label="Presentación"       calculated={costoPresentacion}   override={ovPresentacion}  onOverride={onOvPresentacion}  onReset={() => onOvPresentacion("")} />
         {(costoParticipacion > 0 || ovParticipacion !== "") && (
-          <EditableRow label={`Dirección · Clase ${clase}`} calculated={costoParticipacion} override={ovParticipacion} onOverride={onOvParticipacion} onReset={() => onOvParticipacion("")} />
+          <ERow label={`Dirección · Clase ${clase}`} calculated={costoParticipacion} override={ovParticipacion} onOverride={onOvParticipacion} onReset={() => onOvParticipacion("")} />
         )}
 
         <div className="border-t border-xeryus-border pt-3 mt-2">
-          <Row label="Total costos" value={totalCostos} bold />
+          <StaticRow label="Total costos" value={totalCostos} bold />
         </div>
 
-        {/* Utilidad y precio */}
-        <div className="mt-4 pt-4 border-t-2 border-xeryus-red space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-xeryus-red font-semibold">Utilidad</span>
-            <div className="flex items-center gap-3">
-              {hasPrecioOverride && (
-                <button type="button" onClick={onResetPrecio} className="text-xs text-xeryus-muted hover:text-white transition-colors">
-                  ↺ Restaurar
-                </button>
-              )}
-              <div className="flex items-center gap-1.5 text-sm tabular-nums text-xeryus-red font-bold">
-                <InlineEdit
-                  value={Math.round(utilidadDinero)}
-                  draft={ovUtilidadMonto}
-                  onCommit={onOvUtilidadMonto}
-                  prefix="$"
-                  title="Editar utilidad $"
-                />
-                <span className="text-xeryus-muted font-normal">/</span>
-                <InlineEdit
-                  value={parseFloat(utilidadPctReal.toFixed(1))}
-                  draft={ovUtilidadPct}
-                  onCommit={onOvUtilidadPct}
-                  suffix="%"
-                  decimals={1}
-                  title="Editar utilidad %"
-                />
-              </div>
+        {/* ── Utilidad / Precio ── */}
+        <div className="pt-4 border-t-2 border-xeryus-red space-y-1">
+          {hasPrecioOverride && (
+            <div className="flex justify-end mb-1">
+              <button type="button" onClick={onResetPrecio} className="text-xs text-xeryus-muted hover:text-white transition-colors">
+                ↺ Restaurar precio
+              </button>
             </div>
-          </div>
+          )}
+          <ERow
+            label="Utilidad $"
+            calculated={Math.round(utilidadDinero)}
+            override={ovUtilidadMonto}
+            onOverride={onOvUtilidadMonto}
+            onReset={() => onOvUtilidadMonto("")}
+            highlight
+          />
+          <ERow
+            label="Utilidad %"
+            calculated={parseFloat(utilidadPctReal.toFixed(1))}
+            override={ovUtilidadPct}
+            onOverride={onOvUtilidadPct}
+            onReset={() => onOvUtilidadPct("")}
+            format="pct"
+            highlight
+          />
+          <ERow
+            label="Markup sobre costo"
+            calculated={parseFloat(markupPct.toFixed(1))}
+            override={ovMarkupPct}
+            onOverride={onOvMarkupPct}
+            onReset={() => onOvMarkupPct("")}
+            format="pct"
+          />
 
-          <div className="flex items-center justify-between text-xs text-xeryus-muted">
-            <span>Markup sobre costo</span>
-            <InlineEdit
-              value={parseFloat(markupPct.toFixed(1))}
-              draft={ovMarkupPct}
-              onCommit={onOvMarkupPct}
-              suffix="%"
-              decimals={1}
-              title="Editar markup %"
-              small
-            />
-          </div>
-
-          <div className="flex items-center justify-between bg-xeryus-red rounded-xl px-4 py-3">
+          {/* Precio final */}
+          <div className="flex items-center justify-between bg-xeryus-red rounded-xl px-4 py-3 mt-3">
             <span className="text-white font-bold">Precio final</span>
-            <div className="flex items-center gap-2">
-              {ovPrecio !== "" && (
-                <button type="button" onClick={() => onOvPrecio("")} className="text-xs text-white/50 hover:text-white">↺</button>
-              )}
-              <InlineEdit
-                value={Math.round(precioFinal)}
-                draft={ovPrecio}
-                onCommit={onOvPrecio}
-                prefix="$"
-                title="Fijar precio final"
-                large
-              />
-            </div>
+            <ERow
+              label=""
+              calculated={Math.round(precioFinal)}
+              override={ovPrecio}
+              onOverride={onOvPrecio}
+              onReset={() => onOvPrecio("")}
+              large
+              inline
+            />
           </div>
         </div>
       </div>
@@ -129,7 +118,7 @@ export default function ResumenPrecio({
   );
 }
 
-function Row({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
+function StaticRow({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <span className={`text-sm ${bold ? "font-semibold text-white" : "text-white/60"}`}>{label}</span>
@@ -140,100 +129,101 @@ function Row({ label, value, bold }: { label: string; value: number; bold?: bool
   );
 }
 
-function EditableRow({ label, calculated, override, onOverride, onReset }: {
-  label: string; calculated: number; override: string;
-  onOverride: (v: string) => void; onReset: () => void;
+function ERow({
+  label, calculated, override, onOverride, onReset,
+  format = "mxn", highlight, large, inline,
+}: {
+  label: string;
+  calculated: number;
+  override: string;
+  onOverride: (v: string) => void;
+  onReset: () => void;
+  format?: "mxn" | "pct";
+  highlight?: boolean;
+  large?: boolean;
+  inline?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const ref = useRef<HTMLInputElement>(null);
   const hasOverride = override !== "";
-  const displayValue = hasOverride ? Number(override) : calculated;
+  const effectiveValue = hasOverride ? Number(override) : calculated;
 
   useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
 
-  function startEdit() { setDraft(String(Math.round(hasOverride ? Number(override) : calculated))); setEditing(true); }
+  function startEdit() {
+    setDraft(String(hasOverride ? Number(override) : calculated));
+    setEditing(true);
+  }
   function commit() {
     const n = Number(draft);
-    if (!isNaN(n) && draft !== "") onOverride(String(n)); else onReset();
+    if (!isNaN(n) && draft !== "") onOverride(String(n));
+    else onReset();
     setEditing(false);
   }
+
+  function displayStr(v: number) {
+    if (format === "pct") return `${v.toFixed(1)}%`;
+    return large
+      ? `$${Math.round(v).toLocaleString("es-MX")}`
+      : formatMXN(v);
+  }
+
+  const valueEl = editing ? (
+    <input
+      ref={ref}
+      type="number"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+      step={format === "pct" ? 0.1 : 1}
+      min="0"
+      className={
+        large
+          ? "w-36 text-right bg-white/10 border border-white/40 rounded px-2 py-1 text-white font-black text-xl tabular-nums outline-none"
+          : "w-24 text-right bg-xeryus-card border border-xeryus-red/60 rounded px-2 py-0.5 text-sm text-white tabular-nums outline-none focus:border-xeryus-red"
+      }
+    />
+  ) : (
+    <button
+      type="button"
+      onClick={startEdit}
+      title="Clic para editar"
+      className={[
+        "tabular-nums hover:underline transition-colors",
+        large ? "font-black text-2xl" : "text-sm font-semibold",
+        hasOverride
+          ? (large ? "text-yellow-300" : "text-yellow-400")
+          : highlight
+          ? "text-xeryus-red"
+          : large ? "text-white" : "text-white/70 hover:text-white",
+      ].join(" ")}
+    >
+      {effectiveValue > 0 ? displayStr(effectiveValue) : "—"}
+    </button>
+  );
+
+  if (inline) return (
+    <div className="flex items-center gap-2">
+      {hasOverride && !editing && (
+        <button type="button" onClick={onReset} className="text-xs text-white/50 hover:text-white">↺</button>
+      )}
+      {valueEl}
+    </div>
+  );
 
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-sm text-white/60">{label}</span>
+      <span className={`text-sm ${highlight ? "text-xeryus-red font-semibold" : "text-white/60"}`}>{label}</span>
       <div className="flex items-center gap-2">
         {hasOverride && !editing && (
-          <button type="button" onClick={onReset} className="text-xs text-xeryus-muted hover:text-white transition-colors">↺ Restaurar</button>
-        )}
-        {editing ? (
-          <input ref={ref} type="number" value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
-            className="w-28 text-right bg-xeryus-card border border-xeryus-red/60 rounded px-2 py-0.5 text-sm text-white tabular-nums outline-none focus:border-xeryus-red"
-            min="0"
-          />
-        ) : (
-          <button type="button" onClick={startEdit}
-            className={`text-sm tabular-nums hover:underline ${hasOverride ? "text-yellow-400 font-semibold" : "text-white/70 hover:text-white"}`}
-            title="Clic para editar"
-          >
-            {displayValue > 0 ? formatMXN(displayValue) : "—"}
+          <button type="button" onClick={onReset} className="text-xs text-xeryus-muted hover:text-white transition-colors">
+            ↺ Restaurar
           </button>
         )}
+        {valueEl}
       </div>
     </div>
-  );
-}
-
-function InlineEdit({ value, draft, onCommit, prefix, suffix, decimals = 0, title, small, large }: {
-  value: number; draft: string; onCommit: (v: string) => void;
-  prefix?: string; suffix?: string; decimals?: number;
-  title?: string; small?: boolean; large?: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [localDraft, setLocalDraft] = useState("");
-  const ref = useRef<HTMLInputElement>(null);
-  const hasOverride = draft !== "";
-  const displayValue = hasOverride ? Number(draft) : value;
-
-  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
-
-  function startEdit() { setLocalDraft(String(hasOverride ? Number(draft) : value)); setEditing(true); }
-  function commit() {
-    const n = Number(localDraft);
-    if (!isNaN(n) && localDraft !== "") onCommit(String(n)); else onCommit("");
-    setEditing(false);
-  }
-
-  const textClass = large
-    ? `font-black text-2xl text-white tabular-nums ${hasOverride ? "text-yellow-300" : ""}`
-    : small
-    ? `tabular-nums ${hasOverride ? "text-yellow-400" : ""}`
-    : `font-bold tabular-nums ${hasOverride ? "text-yellow-400" : ""}`;
-
-  const inputClass = large
-    ? "w-32 text-right bg-white/10 border border-white/30 rounded px-2 py-1 text-white font-black text-xl tabular-nums outline-none"
-    : "w-20 text-right bg-xeryus-card border border-xeryus-red/60 rounded px-1.5 py-0.5 text-sm tabular-nums outline-none text-white focus:border-xeryus-red";
-
-  if (editing) {
-    return (
-      <input ref={ref} type="number" value={localDraft}
-        onChange={(e) => setLocalDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
-        className={inputClass}
-        step={decimals > 0 ? 0.1 : 1}
-      />
-    );
-  }
-
-  return (
-    <button type="button" onClick={startEdit} title={title}
-      className={`${textClass} hover:underline transition-colors`}
-    >
-      {prefix}{decimals > 0 ? displayValue.toFixed(decimals) : formatMXN(displayValue).replace("MX$", "$")}{suffix}
-    </button>
   );
 }
