@@ -5,85 +5,26 @@ export const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
-const ESTADOS_ACTIVOS = [
-  "En Proceso",
-  "Propuesta en Revisión",
-  "Realizar Propuesta",
-  "En Contacto",
-  "Cita Agendada",
-  "Nuevo Lead",
-];
-
-async function queryPropuestasDB(dbId: string, useFilter: boolean) {
-  const base = {
-    database_id: dbId,
-    sorts: [{ timestamp: "last_edited_time" as const, direction: "descending" as const }],
-    page_size: 100,
-  };
-
-  if (!useFilter) return notion.databases.query(base);
-
-  // Notion acepta "status" o "select" según el tipo del campo.
-  // Intentamos status primero (tipo más común en DBs modernas de Notion).
-  return notion.databases.query({
-    ...base,
-    filter: {
-      or: ESTADOS_ACTIVOS.map((estado) => ({
-        property: "Estado",
-        status: { equals: estado },
-      })),
-    },
-  });
-}
-
 export async function getPropuestas(): Promise<Propuesta[]> {
   const dbId = process.env.NOTION_PROPUESTAS_DB_ID;
   if (!dbId) throw new Error("NOTION_PROPUESTAS_DB_ID no configurado");
 
-  // Intenta con filtro status → si falla, intenta select → si falla, trae todo
-  let response;
-  for (const [useFilter, filterType] of [[true, "status"], [true, "select"], [false, "none"]] as const) {
-    try {
-      if (filterType === "select" && useFilter) {
-        response = await notion.databases.query({
-          database_id: dbId,
-          sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
-          page_size: 100,
-          filter: {
-            or: ESTADOS_ACTIVOS.map((estado) => ({
-              property: "Estado",
-              select: { equals: estado },
-            })),
-          },
-        });
-      } else {
-        response = await queryPropuestasDB(dbId, useFilter);
-      }
-      break;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      // Solo continúa al siguiente intento si el error es por filtro inválido
-      if (!msg.includes("validation") && !msg.includes("filter") && !msg.includes("invalid")) {
-        throw err;
-      }
-      console.warn(`Propuestas filter (${filterType}) failed, trying fallback:`, msg);
-      if (!useFilter) throw err; // ya en el último intento, relanzar
-    }
-  }
+  const response = await notion.databases.query({
+    database_id: dbId,
+    sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+    page_size: 100,
+  });
 
-  if (!response) throw new Error("No se pudo obtener respuesta de Notion");
-
-  const results = response.results
+  return response.results
     .filter(isFullPage)
     .map((page) => {
       const props = page.properties as Record<string, unknown>;
-      const estado = getStatusOrSelectProp(props, "Estado");
       return {
         id: page.id,
         titulo: getTextProp(props, "Título de Propuesta") || "Sin título",
         empresa: getTextProp(props, "Empresa") || "",
         contacto: getTextProp(props, "Contacto") || "",
-        estado,
+        estado: getStatusOrSelectProp(props, "Estado"),
         proyecto: getTextProp(props, "Proyecto") || "",
         categoria: getStatusOrSelectProp(props, "Categoría"),
         uen: getStatusOrSelectProp(props, "UEN"),
@@ -91,16 +32,7 @@ export async function getPropuestas(): Promise<Propuesta[]> {
         ubicacion: getTextProp(props, "Ubicación") || "",
         lastEdited: page.last_edited_time,
       };
-    })
-    // Si obtuvimos todo sin filtro, filtramos aquí en JS
-    .filter((p) => ESTADOS_ACTIVOS.includes(p.estado));
-
-  return results.sort((a, b) => {
-    const ia = ESTADOS_ACTIVOS.indexOf(a.estado);
-    const ib = ESTADOS_ACTIVOS.indexOf(b.estado);
-    if (ia !== ib) return ia - ib;
-    return b.lastEdited!.localeCompare(a.lastEdited!);
-  });
+    });
 }
 
 export async function updatePropuestaPrecio(
