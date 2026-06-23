@@ -15,24 +15,64 @@ export async function getPropuestas(): Promise<Propuesta[]> {
     page_size: 100,
   });
 
-  return response.results
-    .filter(isFullPage)
-    .map((page) => {
-      const props = page.properties as Record<string, unknown>;
-      return {
-        id: page.id,
-        titulo: getTextProp(props, "Título de Propuesta") || "Sin título",
-        empresa: getTextProp(props, "Empresa") || "",
-        contacto: getTextProp(props, "Contacto") || "",
-        estado: getStatusOrSelectProp(props, "Estado"),
-        proyecto: getTextProp(props, "Proyecto") || "",
-        categoria: getStatusOrSelectProp(props, "Categoría"),
-        uen: getStatusOrSelectProp(props, "UEN"),
-        sector: getStatusOrSelectProp(props, "Sector"),
-        ubicacion: getTextProp(props, "Ubicación") || "",
-        lastEdited: page.last_edited_time,
-      };
-    });
+  const pages = response.results.filter(isFullPage);
+
+  // Contacto es una Relación → recoger IDs únicos y resolverlos en paralelo
+  const contactIds = new Set<string>();
+  for (const page of pages) {
+    const rel = (page.properties["Contacto"] as Record<string, unknown> | undefined);
+    if (rel?.type === "relation" && Array.isArray(rel.relation)) {
+      (rel.relation as Array<{ id: string }>).forEach((r) => contactIds.add(r.id));
+    }
+  }
+
+  const contactMap = new Map<string, string>();
+  if (contactIds.size > 0) {
+    const fetched = await Promise.all(
+      [...contactIds].map((id) => notion.pages.retrieve({ page_id: id }).catch(() => null))
+    );
+    for (const cp of fetched) {
+      if (!cp || !isFullPage(cp)) continue;
+      // El título de la página de contacto es el nombre
+      const titleProp = Object.values(cp.properties).find(
+        (p) => (p as Record<string, unknown>).type === "title"
+      ) as Record<string, unknown> | undefined;
+      if (titleProp && Array.isArray(titleProp.title)) {
+        const name = (titleProp.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
+        contactMap.set(cp.id, name);
+      }
+    }
+  }
+
+  return pages.map((page) => {
+    const props = page.properties as Record<string, unknown>;
+
+    // Resolver Contacto desde la relación
+    const relProp = props["Contacto"] as Record<string, unknown> | undefined;
+    let contacto = "";
+    if (relProp?.type === "relation" && Array.isArray(relProp.relation)) {
+      contacto = (relProp.relation as Array<{ id: string }>)
+        .map((r) => contactMap.get(r.id) ?? "")
+        .filter(Boolean)
+        .join(", ");
+    } else {
+      contacto = getTextProp(props, "Contacto");
+    }
+
+    return {
+      id: page.id,
+      titulo: getTextProp(props, "Título de Propuesta") || "Sin título",
+      empresa: getTextProp(props, "Empresa") || "",
+      contacto,
+      estado: getStatusOrSelectProp(props, "Estado"),
+      proyecto: getTextProp(props, "Proyecto") || "",
+      categoria: getStatusOrSelectProp(props, "Categoría"),
+      uen: getStatusOrSelectProp(props, "UEN"),
+      sector: getStatusOrSelectProp(props, "Sector"),
+      ubicacion: getTextProp(props, "Ubicación") || "",
+      lastEdited: page.last_edited_time,
+    };
+  });
 }
 
 export async function updatePropuestaPrecio(
