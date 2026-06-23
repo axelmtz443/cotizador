@@ -32,6 +32,8 @@ export default function CotizadorForm({ catalogo }: Props) {
   const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
   const [loadingPropuestas, setLoadingPropuestas] = useState(true);
   const [errorPropuestas, setErrorPropuestas] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [visibleCount, setVisibleCount] = useState(50);
 
   const [propuestaId, setPropuestaId] = useState("");
   const [clase, setClase] = useState<ClaseCliente>("");
@@ -70,13 +72,21 @@ export default function CotizadorForm({ catalogo }: Props) {
       .finally(() => setLoadingPropuestas(false));
   }, []);
 
-  const handlePropuestaChange = useCallback(
-    (id: string) => {
-      setPropuestaId(id);
-      setResultado(null);
-    },
-    []
-  );
+  const handlePropuestaChange = useCallback((id: string) => {
+    setPropuestaId(id);
+    setResultado(null);
+  }, []);
+
+  const propuestasFiltradas = propuestas.filter((p) => {
+    if (!busqueda.trim()) return true;
+    const q = busqueda.toLowerCase();
+    return (
+      p.titulo.toLowerCase().includes(q) ||
+      p.empresa.toLowerCase().includes(q) ||
+      p.contacto.toLowerCase().includes(q)
+    );
+  });
+  const propuestasVisibles = propuestasFiltradas.slice(0, visibleCount);
 
   const propuestaSeleccionada = propuestas.find((p) => p.id === propuestaId);
 
@@ -224,18 +234,46 @@ export default function CotizadorForm({ catalogo }: Props) {
                 {errorPropuestas} — Verifica tu NOTION_TOKEN y NOTION_PROPUESTAS_DB_ID en .env.local
               </div>
             ) : (
-              <select
-                value={propuestaId}
-                onChange={(e) => handlePropuestaChange(e.target.value)}
-                className="input-field"
-              >
-                <option value="">— Seleccionar propuesta —</option>
-                {propuestas.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.titulo}{p.empresa ? ` · ${p.empresa}` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Buscar propuesta..."
+                  value={busqueda}
+                  onChange={(e) => { setBusqueda(e.target.value); setVisibleCount(50); }}
+                  className="input-field text-sm"
+                />
+                <div className="border border-xeryus-border rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                  {propuestasVisibles.length === 0 ? (
+                    <p className="text-sm text-xeryus-muted px-3 py-2">Sin resultados</p>
+                  ) : (
+                    propuestasVisibles.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handlePropuestaChange(p.id)}
+                        className={`w-full text-left px-3 py-2 text-sm border-b border-xeryus-border last:border-0 transition-colors ${
+                          propuestaId === p.id
+                            ? "bg-xeryus-red/20 text-white"
+                            : "hover:bg-white/5 text-white/80"
+                        }`}
+                      >
+                        <span className="font-medium">{p.titulo}</span>
+                        {p.empresa && <span className="text-xeryus-muted ml-2 text-xs">{p.empresa}</span>}
+                      </button>
+                    ))
+                  )}
+                  {propuestasFiltradas.length > visibleCount && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((v) => v + 50)}
+                      className="w-full px-3 py-2 text-xs text-xeryus-muted hover:text-white hover:bg-white/5 transition-colors border-t border-xeryus-border"
+                    >
+                      Cargar más ({propuestasFiltradas.length - visibleCount} restantes)
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-xeryus-muted">{propuestasFiltradas.length} propuesta{propuestasFiltradas.length !== 1 ? "s" : ""}</p>
+              </div>
             )}
 
             {/* Info de la propuesta seleccionada */}
