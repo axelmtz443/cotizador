@@ -42,10 +42,15 @@ export default function CatalogoManager({ initialCatalogo }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      const json = await res.json();
       if (res.ok) {
         setSavedMsg("Guardado");
         setTimeout(() => setSavedMsg(""), 2500);
+      } else {
+        setSavedMsg(`Error: ${json.error ?? "desconocido"}`);
       }
+    } catch (e) {
+      setSavedMsg(`Error de red: ${e}`);
     } finally {
       setSaving(false);
     }
@@ -134,7 +139,11 @@ export default function CatalogoManager({ initialCatalogo }: Props) {
           </button>
         )}
 
-        {savedMsg && <span className="text-xs text-green-400 font-medium ml-2">✓ {savedMsg}</span>}
+        {savedMsg && (
+          <span className={`text-xs font-medium ml-2 ${savedMsg.startsWith("Error") ? "text-xeryus-redMid" : "text-green-400"}`}>
+            {savedMsg.startsWith("Error") ? savedMsg : `✓ ${savedMsg}`}
+          </span>
+        )}
         {saving && <span className="text-xs text-xeryus-muted ml-2">Guardando...</span>}
       </div>
 
