@@ -1,9 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Propuesta, FilaCotizacion, CatalogoData, ClaseCliente, CotizacionSnapshot } from "@/types";
 import { calcularCotizacion, generarNumeroCotizacion } from "@/lib/pricing";
 import TablaServicios from "./TablaServicios";
 import ResumenPrecio from "./ResumenPrecio";
+
+const DRAFT_KEY = "xeryus_cotizacion_draft";
 
 function nuevaFila(): FilaCotizacion {
   return {
@@ -58,9 +60,37 @@ export default function CotizadorForm({ catalogo, initialData, cotizacionId }: P
   const [notas, setNotas] = useState("");
   const [registrando, setRegistrando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const mountedRef = useRef(false);
+
+  // Restaurar borrador desde localStorage (solo en modo nuevo, no al editar desde historial)
+  useEffect(() => {
+    if (initialData) return;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.propuestaId) setPropuestaId(draft.propuestaId);
+      if (draft.clase) setClase(draft.clase);
+      if (typeof draft.plazas === "number") setPlazas(draft.plazas);
+      if (typeof draft.precioPorPlaza === "number") setPrecioPorPlaza(draft.precioPorPlaza);
+      if (Array.isArray(draft.filas) && draft.filas.length > 0) setFilas(draft.filas);
+      if (draft.ovServicios !== undefined) setOvServicios(draft.ovServicios);
+      if (draft.ovPM !== undefined) setOvPM(draft.ovPM);
+      if (draft.ovPresentacion !== undefined) setOvPresentacion(draft.ovPresentacion);
+      if (draft.ovParticipacion !== undefined) setOvParticipacion(draft.ovParticipacion);
+      if (draft.ovPrecio !== undefined) setOvPrecio(draft.ovPrecio);
+      if (draft.ovUtilidadMonto !== undefined) setOvUtilidadMonto(draft.ovUtilidadMonto);
+      if (draft.ovUtilidadPct !== undefined) setOvUtilidadPct(draft.ovUtilidadPct);
+      if (draft.ovMarkupPct !== undefined) setOvMarkupPct(draft.ovMarkupPct);
+      if (draft.notas !== undefined) setNotas(draft.notas);
+      if (draft.numeroCotizacion) setNumeroCotizacion(draft.numeroCotizacion);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (!initialData) setNumeroCotizacion(generarNumeroCotizacion());
+    if (!initialData) setNumeroCotizacion((prev) => prev || generarNumeroCotizacion());
   }, [initialData]);
 
   useEffect(() => {
@@ -82,6 +112,33 @@ export default function CotizadorForm({ catalogo, initialData, cotizacionId }: P
     setNumeroCotizacion(initialData.numeroCotizacion);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Guardar borrador en localStorage (solo en modo nuevo, no desde historial)
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    if (cotizacionId) return; // no sobrescribir al editar desde historial
+    const tieneContenido = propuestaId !== "" || filas.some((f) => f.servicio !== null);
+    if (!tieneContenido) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        propuestaId, clase, plazas, precioPorPlaza, filas,
+        ovServicios, ovPM, ovPresentacion, ovParticipacion,
+        ovPrecio, ovUtilidadMonto, ovUtilidadPct, ovMarkupPct,
+        notas, numeroCotizacion,
+      }));
+      setDraftSaved(true);
+    } catch {}
+  }, [propuestaId, clase, plazas, precioPorPlaza, filas, ovServicios, ovPM, ovPresentacion,
+      ovParticipacion, ovPrecio, ovUtilidadMonto, ovUtilidadPct, ovMarkupPct, notas, numeroCotizacion, cotizacionId]);
+
+  function limpiarBorrador() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setPropuestaId(""); setClase(""); setPlazas(0); setPrecioPorPlaza(5000);
+    setFilas([nuevaFila()]); setOvServicios(""); setOvPM(""); setOvPresentacion("");
+    setOvParticipacion(""); setOvPrecio(""); setOvUtilidadMonto(""); setOvUtilidadPct("");
+    setOvMarkupPct(""); setNotas(""); setNumeroCotizacion(generarNumeroCotizacion());
+    setResultado(null); setDraftSaved(false);
+  }
 
   useEffect(() => {
     fetch("/api/propuestas")
@@ -400,13 +457,27 @@ export default function CotizadorForm({ catalogo, initialData, cotizacionId }: P
           </div>
 
           {/* Meta */}
-          <div className="flex items-center gap-4 pt-1 border-t border-xeryus-border">
+          <div className="flex items-center gap-4 pt-1 border-t border-xeryus-border flex-wrap">
             <span className="text-xs text-xeryus-muted">
               No.&nbsp;<span className="font-mono text-white/70">{numeroCotizacion || "generando..."}</span>
             </span>
             <span className="text-xs text-xeryus-muted">
               Fecha&nbsp;<span className="text-white/70">{new Date().toLocaleDateString("es-MX")}</span>
             </span>
+            <div className="ml-auto flex items-center gap-3">
+              {draftSaved && !cotizacionId && (
+                <span className="text-xs text-xeryus-muted">borrador guardado</span>
+              )}
+              {!cotizacionId && (
+                <button
+                  type="button"
+                  onClick={limpiarBorrador}
+                  className="text-xs text-xeryus-muted hover:text-white transition-colors underline underline-offset-2"
+                >
+                  Nueva cotización
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

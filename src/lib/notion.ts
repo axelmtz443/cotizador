@@ -1,5 +1,5 @@
 import { Client, isFullPage } from "@notionhq/client";
-import type { Propuesta, CotizacionData, CotizacionSnapshot } from "@/types";
+import type { Propuesta, CotizacionData, CotizacionSnapshot, CatalogoData } from "@/types";
 
 export const notion = new Client({
   auth: process.env.NOTION_TOKEN,
@@ -286,6 +286,51 @@ export async function actualizarRegistroEnCotizacionesDb(
         },
       } : {}),
     },
+  });
+}
+
+// ─── catálogo en Notion ──────────────────────────────────────────────────────
+
+export async function getCatalogoFromNotion(): Promise<CatalogoData | null> {
+  const pageId = process.env.NOTION_CATALOGO_PAGE_ID;
+  if (!pageId) return null;
+  try {
+    const { results } = await notion.blocks.children.list({ block_id: pageId, page_size: 100 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const para = results.find((b: any) => b.type === "paragraph") as any;
+    if (!para) return null;
+    const json = (para.paragraph.rich_text as Array<{ plain_text: string }>)
+      .map((t) => t.plain_text)
+      .join("");
+    if (!json) return null;
+    return JSON.parse(json) as CatalogoData;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCatalogoToNotion(data: CatalogoData): Promise<void> {
+  const pageId = process.env.NOTION_CATALOGO_PAGE_ID;
+  if (!pageId) throw new Error("NOTION_CATALOGO_PAGE_ID no configurado");
+
+  // Borrar todos los bloques existentes
+  const { results } = await notion.blocks.children.list({ block_id: pageId, page_size: 100 });
+  await Promise.all(results.map((b) => notion.blocks.delete({ block_id: b.id })));
+
+  // Guardar el JSON completo como un solo bloque párrafo con múltiples rich_text items
+  const json = JSON.stringify(data);
+  await notion.blocks.children.append({
+    block_id: pageId,
+    children: [{
+      object: "block",
+      type: "paragraph",
+      paragraph: {
+        rich_text: chunkText(json, 2000).map((chunk) => ({
+          type: "text" as const,
+          text: { content: chunk },
+        })),
+      },
+    }],
   });
 }
 
