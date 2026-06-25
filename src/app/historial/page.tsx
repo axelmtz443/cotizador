@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 interface CotizacionRow {
   id: string;
   nombre: string;
+  propuesta: string;
   cliente: string;
-  empresa: string;
   clase: string;
   totalCostos: number;
   precioFinal: number;
@@ -28,69 +28,91 @@ async function getCotizaciones(): Promise<CotizacionRow[]> {
       page_size: 50,
     });
 
-    return response.results
-      .filter(isFullPage)
-      .map((page) => {
-        const props = page.properties as Record<string, unknown>;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getTitle = (k: string): string => {
-          const p = props[k] as any;
-          if (!p || !Array.isArray(p.title)) return "";
-          return (p.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
-        };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getAny = (k: string): any => props[k];
+    const pages = response.results.filter(isFullPage);
 
-        const getNum = (k: string): number => {
-          const p = getAny(k);
-          // Campo directo de tipo number
-          if (typeof p?.number === "number") return p.number;
-          // Rollup que agrega números
-          if (p?.type === "rollup" && typeof p?.rollup?.number === "number") return p.rollup.number;
-          return 0;
-        };
-        const getDate = (k: string): string => {
-          const p = getAny(k);
-          return p?.date?.start ?? "";
-        };
-        // Lee texto desde rich_text, fórmula string o rollup array
-        const getTextFlexible = (k: string): string => {
-          const p = getAny(k);
-          if (!p) return "";
-          if (Array.isArray(p.rich_text)) return p.rich_text.map((t: any) => t.plain_text).join("");
-          if (p.type === "formula" && typeof p.formula?.string === "string") return p.formula.string;
-          if (p.type === "rollup" && Array.isArray(p.rollup?.array)) {
-            return p.rollup.array
-              .flatMap((item: any) => item.rich_text ?? item.title ?? [])
-              .map((t: any) => t.plain_text ?? "")
-              .join(", ");
-          }
-          return "";
-        };
-        // Lee clase desde rollup select o select directo
-        const getClase = (): string => {
-          const p = getAny("Clase");
-          if (!p) return "";
-          if (p.type === "select") return p.select?.name ?? "";
-          if (p.type === "rollup" && Array.isArray(p.rollup?.array)) {
-            return p.rollup.array.map((item: any) => item.select?.name ?? "").filter(Boolean).join(", ");
-          }
-          return "";
-        };
+    // Resolver IDs de la relación "Propuesta" a sus títulos
+    const propuestaIds = new Set<string>();
+    for (const page of pages) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rel = (page.properties["Propuesta"] as any);
+      if (rel?.type === "relation" && Array.isArray(rel.relation)) {
+        rel.relation.forEach((r: { id: string }) => propuestaIds.add(r.id));
+      }
+    }
+    const propuestaMap = new Map<string, string>();
+    if (propuestaIds.size > 0) {
+      await Promise.all(
+        [...propuestaIds].map(async (id) => {
+          try {
+            const p = await notion.pages.retrieve({ page_id: id });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const props = (p as any).properties as Record<string, any>;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const titleProp = Object.values(props).find((v: any) => v?.type === "title") as any;
+            const title = titleProp?.title?.map((t: { plain_text: string }) => t.plain_text).join("") ?? "";
+            if (title) propuestaMap.set(id, title);
+          } catch {}
+        })
+      );
+    }
 
-        return {
-          id: page.id,
-          nombre: getTitle("Nombre"),
-          cliente: getTextFlexible("Cliente"),
-          empresa: getTextFlexible("Empresa"),
-          clase: getClase(),
-          totalCostos: getNum("Total Costos"),
-          precioFinal: getNum("Precio Final"),
-          utilidad: getNum("Utilidad $"),
-          fecha: getDate("Fecha"),
-          notionUrl: `https://www.notion.so/${page.id.replace(/-/g, "")}`,
-        };
-      });
+    return pages.map((page) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const props = page.properties as Record<string, any>;
+
+      const getTitle = (k: string): string => {
+        const p = props[k];
+        if (!p || !Array.isArray(p.title)) return "";
+        return (p.title as Array<{ plain_text: string }>).map((t) => t.plain_text).join("");
+      };
+      const getNum = (k: string): number => {
+        const p = props[k];
+        if (typeof p?.number === "number") return p.number;
+        if (p?.type === "rollup" && typeof p?.rollup?.number === "number") return p.rollup.number;
+        return 0;
+      };
+      const getDate = (k: string): string => props[k]?.date?.start ?? "";
+      const getFormula = (k: string): string => {
+        const p = props[k];
+        if (!p) return "";
+        if (p.type === "formula" && typeof p.formula?.string === "string") return p.formula.string;
+        if (Array.isArray(p.rich_text)) return p.rich_text.map((t: { plain_text: string }) => t.plain_text).join("");
+        return "";
+      };
+      const getClase = (): string => {
+        const p = props["Clase"];
+        if (!p) return "";
+        if (p.type === "select") return p.select?.name ?? "";
+        if (p.type === "formula") return p.formula?.string ?? "";
+        if (p.type === "rollup" && Array.isArray(p.rollup?.array)) {
+          return p.rollup.array.map((item: { select?: { name: string } }) => item.select?.name ?? "").filter(Boolean).join(", ");
+        }
+        return "";
+      };
+
+      // Propuesta: resolver relación a título
+      const relPropuesta = props["Propuesta"];
+      let propuestaNombre = "";
+      if (relPropuesta?.type === "relation" && Array.isArray(relPropuesta.relation)) {
+        propuestaNombre = (relPropuesta.relation as Array<{ id: string }>)
+          .map((r) => propuestaMap.get(r.id) ?? "")
+          .filter(Boolean)
+          .join(", ");
+      }
+
+      return {
+        id: page.id,
+        nombre: getTitle("Nombre"),
+        propuesta: propuestaNombre,
+        cliente: getFormula("Cliente"),
+        clase: getClase(),
+        totalCostos: getNum("Total Costos"),
+        precioFinal: getNum("Precio Final"),
+        utilidad: getNum("Utilidad $"),
+        fecha: getDate("Fecha"),
+        notionUrl: `https://www.notion.so/${page.id.replace(/-/g, "")}`,
+      };
+    });
   } catch {
     return [];
   }
@@ -139,7 +161,7 @@ export default async function HistorialPage() {
                     No. Cotización
                   </th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-xeryus-muted uppercase tracking-wider">
-                    Cliente / Empresa
+                    Propuesta / Cliente
                   </th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-xeryus-muted uppercase tracking-wider">
                     Clase
@@ -169,8 +191,8 @@ export default async function HistorialPage() {
                       {c.nombre}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-white">{c.cliente}</p>
-                      <p className="text-xs text-xeryus-muted">{c.empresa}</p>
+                      <p className="font-medium text-white">{c.propuesta || "—"}</p>
+                      <p className="text-xs text-xeryus-muted">{c.cliente}</p>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${

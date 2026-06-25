@@ -1,6 +1,6 @@
 import CatalogoManager from "@/components/CatalogoManager";
 import { catalogoInicial } from "@/lib/catalog-data";
-import { getCatalogoFromNotion } from "@/lib/notion";
+import { getCatalogoFromNotion, saveCatalogoToNotion } from "@/lib/notion";
 import { promises as fs } from "fs";
 import path from "path";
 import type { CatalogoData } from "@/types";
@@ -8,8 +8,12 @@ import type { CatalogoData } from "@/types";
 export const dynamic = "force-dynamic";
 
 async function getCatalogo(): Promise<CatalogoData> {
-  const fromNotion = await getCatalogoFromNotion();
-  if (fromNotion) return fromNotion;
+  if (process.env.NOTION_CATALOGO_PAGE_ID) {
+    const fromNotion = await getCatalogoFromNotion();
+    if (fromNotion) return fromNotion;
+    try { await saveCatalogoToNotion(catalogoInicial); } catch {}
+    return catalogoInicial;
+  }
   try {
     const raw = await fs.readFile(
       path.join(process.cwd(), "data", "catalogo.json"),

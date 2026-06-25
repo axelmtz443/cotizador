@@ -1,6 +1,6 @@
 import CotizadorForm from "@/components/CotizadorForm";
 import { catalogoInicial } from "@/lib/catalog-data";
-import { getCotizacionDatos, getCatalogoFromNotion } from "@/lib/notion";
+import { getCotizacionDatos, getCatalogoFromNotion, saveCatalogoToNotion } from "@/lib/notion";
 import { promises as fs } from "fs";
 import path from "path";
 import type { CatalogoData, CotizacionSnapshot } from "@/types";
@@ -8,8 +8,13 @@ import type { CatalogoData, CotizacionSnapshot } from "@/types";
 export const dynamic = "force-dynamic";
 
 async function getCatalogo(): Promise<CatalogoData> {
-  const fromNotion = await getCatalogoFromNotion();
-  if (fromNotion) return fromNotion;
+  if (process.env.NOTION_CATALOGO_PAGE_ID) {
+    const fromNotion = await getCatalogoFromNotion();
+    if (fromNotion) return fromNotion;
+    // Auto-seed: primera carga con Notion vacío
+    try { await saveCatalogoToNotion(catalogoInicial); } catch {}
+    return catalogoInicial;
+  }
   try {
     const raw = await fs.readFile(path.join(process.cwd(), "data", "catalogo.json"), "utf-8");
     return JSON.parse(raw) as CatalogoData;

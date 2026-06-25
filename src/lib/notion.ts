@@ -218,12 +218,6 @@ export async function crearRegistroEnCotizacionesDb(
       "Propuesta": {
         relation: [{ id: propuestaPageId }],
       },
-      "Empresa": {
-        rich_text: [{ text: { content: cotizacion.empresa.slice(0, 2000) } }],
-      },
-      "Cliente": {
-        rich_text: [{ text: { content: cotizacion.cliente.slice(0, 2000) } }],
-      },
       // "Desglose": cambiar tipo a Texto en Notion para activar esta línea
       "Desglose": { rich_text: [{ text: { content: desgloseTexto.slice(0, 2000) } }] },
       ...(cotizacion.notas ? {
@@ -265,12 +259,6 @@ export async function actualizarRegistroEnCotizacionesDb(
       "Precio Final": { number: cotizacion.precioFinal },
       "Utilidad $": { number: cotizacion.utilidadDinero },
       "Fecha": { date: { start: cotizacion.fecha } },
-      "Empresa": {
-        rich_text: [{ text: { content: cotizacion.empresa.slice(0, 2000) } }],
-      },
-      "Cliente": {
-        rich_text: [{ text: { content: cotizacion.cliente.slice(0, 2000) } }],
-      },
       "Desglose": { rich_text: [{ text: { content: desgloseTexto.slice(0, 2000) } }] },
       "Notas": {
         rich_text: cotizacion.notas
